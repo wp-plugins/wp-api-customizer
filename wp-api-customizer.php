@@ -4,7 +4,7 @@ Plugin Name: WP API Customizer
 Plugin URI:  https://github.com/ixkaito/wp-api-customizer
 Author:      KITE
 Author URI:  http://kiteretz.com
-Version:     0.0.1
+Version:     0.0.2
 Description: Make post meta data (custom field values) available for JSON REST API (WP API) when unauthenticated.
 Text Domain: wp-api-customizer
 Domain Path: /languages
@@ -16,10 +16,10 @@ define( 'WP_API_CUSTOMIZER_PATH', dirname( __FILE__ ) );
 
 class WP_API_Customizer {
 
-	private $version   = '';
-	private $languages = '';
-	private $domain    = '';
-	private $options   = '';
+	public $version   = '';
+	public $languages = '';
+	public $domain    = '';
+	public $options   = '';
 
 	public function __construct() {
 		$data = get_file_data( __FILE__, array( 'version' => 'Version', 'languages' => 'Domain Path', 'domain' => 'Text Domain' ) );
@@ -27,6 +27,7 @@ class WP_API_Customizer {
 		$this->languages = $data['languages'];
 		$this->domain    = $data['domain'];
 		$this->options   = $this->domain . '-options';
+		$this->nonce     = $this->domain . '-nonce';
 
 		add_action( 'plugins_loaded', array( $this, 'plugins_loaded' ) );
 	}
@@ -65,8 +66,8 @@ class WP_API_Customizer {
 
 	public function admin_menu() {
 		add_menu_page(
-			__( 'WP API Customizer' ),
-			__( 'WP API Customizer' ),
+			__( 'WP API Customizer', $this->domain ),
+			__( 'WP API Customizer', $this->domain ),
 			'manage_options',
 			$this->domain,
 			array( $this, 'options_page' ),
@@ -75,15 +76,16 @@ class WP_API_Customizer {
 	}
 
 	public function admin_init() {
-		if ( isset( $_POST['_wpnonce'] ) && $_POST['_wpnonce'] ) {
-			if ( isset( $_POST[ $this->options ] ) ) {
-				check_admin_referer( $this->options );
-				$options = $_POST[ $this->options ];
-				update_option( $this->options, $options );
-			} else {
-				update_option( $this->options, '' );
+		if ( isset( $_POST[ $this->nonce ] ) && $_POST[ $this->nonce ] ) {
+			if ( check_admin_referer( $this->options, $this->nonce ) ) {
+				if ( isset( $_POST[ $this->options ] ) ) {
+					$options = $_POST[ $this->options ];
+					update_option( $this->options, $options );
+				} else {
+					update_option( $this->options, '' );
+				}
+				wp_safe_redirect( menu_page_url( $this->domain, false ) );
 			}
-			wp_safe_redirect( menu_page_url( $this->domain, false ) );
 		}
 	}
 
@@ -91,25 +93,25 @@ class WP_API_Customizer {
 		?>
 		<div class="wrap">
 		<div id="icon-options-general" class="icon32"><br /></div>
-			<h2 style="margin-bottom: 15px;"><?php _e( 'WP API Customizer' ); ?></h2>
+			<h2 style="margin-bottom: 15px;"><?php _e( 'WP API Customizer', $this->domain ); ?></h2>
 			<form action="" method="post">
 				<?php
-					wp_nonce_field( $this->options );
+					wp_nonce_field( $this->options, $this->nonce );
 					$options = get_option( $this->options );
 				?>
 				<table class="wp-list-table widefat fixed" id="<?php echo esc_attr( $this->options ); ?>">
 					<thead>
 						<tr>
 							<th class="column-remove" id="cb" scope="col"></th>
-							<th scope="col"><?php _e( 'JSON Attribute' ); ?></th>
-							<th scope="col"><?php _e( 'Custom Field Name' ); ?></th>
+							<th scope="col"><?php _e( 'JSON Attribute', $this->domain ); ?></th>
+							<th scope="col"><?php _e( 'Custom Field Name', $this->domain ); ?></th>
 						</tr>
 					</thead>
 					<tfoot>
 						<tr>
 							<th class="column-add" scope="col"><a href="#" class="dashicons-before dashicons-plus add-option"></a></th>
-							<th scope="col"><?php _e( 'JSON Attribute' ); ?></th>
-							<th scope="col"><?php _e( 'Custom Field Name' ); ?></th>
+							<th scope="col"><?php _e( 'JSON Attribute', $this->domain ); ?></th>
+							<th scope="col"><?php _e( 'Custom Field Name', $this->domain ); ?></th>
 						</tr>
 					</tfoot>
 					<tbody id="the-list">
@@ -156,4 +158,4 @@ class WP_API_Customizer {
 
 }
 
-new WP_API_Customizer();
+$wp_api_customizer = new WP_API_Customizer();
